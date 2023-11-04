@@ -1,8 +1,11 @@
 import pygame
 import random
 import numpy as np
+
 from math import sqrt
 from enum import Enum
+import sys
+
 
 class Snake:
     class Player(Enum):
@@ -10,9 +13,15 @@ class Snake:
         ai     = 2
         train  = 3
 
+    class Direction(Enum):
+        right = 0
+        left  = 1
+        down  = 2
+        up    = 3
+
     def __init__(self):
         self.player = self.Player.human
-        self.scr_width = 1280 / 2  # TODO DEBUG
+        self.scr_width = 1280 / 2  
         self.scr_height = 720 / 2
         self.scr = pygame.display.set_mode((self.scr_width, self.scr_height))
         self.clock = pygame.time.Clock()
@@ -27,37 +36,81 @@ class Snake:
         self.snake_speed_y = 0.0
         self.snake_size = 1
         self.segments = []  # queue FIFO
+        self.state = {}
+        self.speed = 10
 
-    def calculate_distance(self, a, b):
+    def get_speed(self):
+        return self.speed
+
+    def get_state(self):
+        return self.state
+
+    @staticmethod
+    def __calculate_distance(a, b):
         return sqrt(((a.x - b.x) ** 2) + ((a.y - b.y) ** 2))
 
-    def normalize(self, x):
-        return 1.0 / (1.0 + x)
-
-    def calculate_cost(self, state, weights):
+    def __get_features(self, state):
         snake_head = state["snake_head"]
         food = state["food"]
         segments = state["segments"]
-        distance_head_segment = 1.0
 
         distances = []
-        distance_head_segment = -10000
+        mean_near_segments = 0.0
 
         if len(segments) > 3:
-            for segment in segments[:-2]:
-                distances.append(self.calculate_distance(snake_head, segment))
 
-            nearest_segment = min(distances)
-            distance_head_segment = np.exp(-1 * nearest_segment)
+            for segment in segments:
+                distances.append(self.__calculate_distance(snake_head, segment))
 
-        distance_head_food = self.calculate_distance(snake_head, food)
+            mean_near_segments = np.mean(sorted(distances)[:-3])
 
-        features = np.array([distance_head_food, distance_head_segment])
+        distance_head_food = self.__calculate_distance(snake_head, food)
+        mean_near_segments_feature = np.exp( -1 * mean_near_segments ) # exponentialy grows as distance decreases
 
-        return (np.dot(features, weights) ** 2) / 2.0
+        features = np.array([distance_head_food, mean_near_segments_feature])
 
-    def calculate_actions(self, state, speed):
-        sample_space = [state] * 4
+        return features
+
+    def goes_dead_end(self, state, count, depth): # TODO DEBUG
+        if count > depth:
+            return False
+
+        for action in self.__calculate_actions(state):
+            next_states = self.__calculate_actions(action)
+            for next_state in next_states:
+                if self.goes_dead_end(next_state, count + 1, depth):
+                    return True
+
+            head = action["snake_head"]
+            segments = action["segments"]
+
+            for segment in segments:
+                if head.colliderect(segment):
+                    break
+
+        return True
+
+    def __calculate_cost(self, state, weights):
+        head = state["snake_head"]
+        segments = state["segments"]
+
+        if segments:
+            # if action cuases collision, return a big cost
+            for segment in segments:
+                if head.colliderect(segment):
+                    return sys.maxsize
+
+            # if actions next possible actions cuase collision, return a big cost
+            if self.goes_dead_end(state, 0, 10):
+                print("dead end")
+                return sys.maxsize
+
+        features = self.__get_features(state)
+        return np.dot(features, weights)
+
+    def __calculate_actions(self, state):
+        speed = self.get_speed()
+
         sample_space = [
             {"snake_head": pygame.Rect(state["snake_head"].x + speed, state["snake_head"].y, 10, 10),
              "food": state["food"], "segments": state["segments"]},
@@ -66,23 +119,23 @@ class Snake:
             {"snake_head": pygame.Rect(state["snake_head"].x, state["snake_head"].y + speed, 10, 10),
              "food": state["food"], "segments": state["segments"]},
             {"snake_head": pygame.Rect(state["snake_head"].x, state["snake_head"].y - speed, 10, 10),
-             "food": state["food"], "segments": state["segments"]}
-        ]
+             "food": state["food"], "segments": state["segments"]}]
 
         return sample_space
 
-    def minimize(self, state, speed, weights):
-        actions = self.calculate_actions(state, speed)
-        decision = state
+    def __minimize(self, weights):
+        speed = self.get_speed()
 
+        actions = self.__calculate_actions(self.state)
+        decision = actions[0]
         index = 0
-        i = 0
-        for i in range(len(actions)):
-            if self.calculate_cost(actions[i], weights) < self.calculate_cost(decision, weights):
+        
+        for i in range(1, len(actions)):
+            if self.__calculate_cost(actions[i], weights) < self.__calculate_cost(decision, weights):
                 decision = actions[i]
                 index = i
 
-        return index  # right, left, down, up
+        return self.Direction(index)
 
     def main(self, weights):
         pygame.init()
@@ -128,52 +181,48 @@ class Snake:
 
             self.snake_head = pygame.Rect(self.snake_pos[0], self.snake_pos[1], 10, 10)
 
-            for segment in self.segments[:-2]:
-                if collision := self.snake_head.colliderect(segment):
-                    print("Score: ", self.snake_size)
+            for segment in self.segments:
+                if self.snake_head.colliderect(segment):
+                    return self.snake_size
 
             if self.snake_pos[0] < 0 or self.snake_pos[0] > self.scr.get_width() or self.snake_pos[1] < 0 or self.snake_pos[1] > self.scr.get_height():
                 self.snake_pos = pygame.Vector2(self.scr.get_width() / 2, self.scr.get_height() / 2)
 
-            state = {"snake_head": self.snake_head, "segments": self.segments, "food": self.food}
+            self.state = {"snake_head": self.snake_head, "segments": self.segments, "food": self.food}
 
-            if self.Player == self.Player.train:
-                speed = 10.0
-            else:
-                k = 5.0 
-                divisor = 15.0
-                speed = (k * self.dt) / divisor
+            # set speed
+            speed = self.get_speed()
 
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_d] and self.direction != 1:
-                self.direction = 0
-            if keys[pygame.K_a] and self.direction != 0:
-                self.direction = 1
-            if keys[pygame.K_s] and self.direction != 3:
-                self.direction = 2
-            if keys[pygame.K_w] and self.direction != 2:
-                self.direction = 3
+            if keys[pygame.K_d] and self.direction != self.Direction.left:
+                self.direction = self.Direction.right
+            if keys[pygame.K_a] and self.direction != self.Direction.right:
+                self.direction = self.Direction.left 
+            if keys[pygame.K_s] and self.direction != self.Direction.up:
+                self.direction = self.Direction.down 
+            if keys[pygame.K_w] and self.direction != self.Direction.down:
+                self.direction = self.Direction.up
 
             if self.Player != self.Player.human:
-                self.direction = self.minimize(state, speed, weights)
+                self.direction = self.__minimize(weights)
 
-            if self.direction == 0:
+            if self.direction == self.Direction.right:
                 self.snake_speed_x = speed
                 self.snake_speed_y = 0
 
-            if self.direction == 1:
+            if self.direction == self.Direction.left:
                 self.snake_speed_x = -1 * speed
                 self.snake_speed_y = 0
 
-            if self.direction == 2:
+            if self.direction == self.Direction.down:
                 self.snake_speed_x = 0
                 self.snake_speed_y = speed
 
-            if self.direction == 3:
+            if self.direction == self.Direction.up:
                 self.snake_speed_x = 0
                 self.snake_speed_y = -1 * speed
 
-            if collision := self.snake_head.colliderect(self.food):
+            if self.snake_head.colliderect(self.food):
                 self.is_food = False
                 self.snake_size += 10
 
@@ -183,70 +232,43 @@ class Snake:
             pygame.draw.rect(self.scr, "red", self.food) 
             pygame.display.flip()
 
-            fps = 1000 if self.Player == self.Player.train else 60
+            fps = 1000 if self.Player == self.Player.train else 50
             self.dt = self.clock.tick(fps)
 
         pygame.quit()
 
-    def a(self, w1, w2):
-        return np.array([w1, w2])
-
-    def run(self, arr):
-        fitnesses = []
-        for _ in range(5):
-            fitnesses.append(self.main(self.a(arr[0], arr[1])))
-        return np.mean(fitnesses)
-
     def playAI(self, parameters):
         self.Player = self.Player.ai
         self.main(parameters)
-
-    def learn(self):
-        self.Player = self.Player.train
-        bestw1 = 0.0
-        bestw2 = 0.0
-        best = 0.0
-
-        while best < 400:
-            w1 = random.uniform(0, 1000.0)
-            w2 = random.uniform(-1000.0, 0)
-
-            current = self.run(self.a(w1, w2))
-            if current > best:
-                best = current
-                bestw1 = w1
-                bestw2 = w2
-
-        for _ in range(10):
-            w1 = random.uniform(bestw1 - 10.0, bestw1 + 10.0)
-            w2 = random.uniform(bestw2 - 10.0, bestw2 + 10.0)
-
-            current = self.run(self.a(w1, w2))
-            if current > best:
-                best = current
-                bestw1 = w1
-                bestw2 = w2
-
-        for _ in range(10):
-            w1 = random.uniform(bestw1 - 1.0, bestw1 + 1.0)
-            w2 = random.uniform(bestw2 - 1.0, bestw2 + 1.0)
-
-            current = self.run(self.a(w1, w2))
-            if current > best:
-                best = current
-                bestw1 = w1
-                bestw2 = w2
-
-        return np.array([bestw1, bestw2])
 
     def play_player(self):
         self.Player = self.Player.human
         empty_array = np.array([[1], [1]])
         self.main(empty_array)
 
+    # def run_main(parameters):
+    #     fitnesses = []
+    #     for _ in range(2):
+    #         fitnesses.append(main(parameters))
+
+    #     return np.mean(fitnesses)
+
+    # def learn(self):
+    #     self.Player = self.Player.train
+
+    #     parameters = np.ones(7, dtype=np.float64)
+    #     fitness = 0.0
+
+    #     
+
+
+    #     return parameters
+
 if __name__ == "__main__":
     snake = Snake()
     # parameters = snake.learn()
-    parameters = np.array([900, -180])
+    parameters = np.array([100.0, 10.0]) # , 10000.0]) # , 4.0, 8.0, 16.0, 32.0, 64.0])
     snake.playAI(parameters)
+
+    # print(parameters)
     # snake.play_player()
