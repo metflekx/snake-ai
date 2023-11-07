@@ -1,4 +1,4 @@
-<iframe width="560" height="315" src="https://drive.google.com/uc?export=download&id=1jdfkAPNQNiwXO6PijHN8Ug31d8qQQS1X" frameborder="0" allowfullscreen></iframe>
+[![github.com/metflekx/snake-ai](https://img.youtube.com/vi/POaTPWV31vs/0.jpg)](https://www.youtube.com/watch?v=POaTPWV31vs)
 
 
 # Snake Game AI with Heuristic-Based Algorithm
