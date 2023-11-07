@@ -13,6 +13,11 @@ from ai import AI
 
 class Game:
     def __init__(self, player):
+        """
+        Initialize game
+        :param player: player type
+        """
+
         self.player = Player[player]
         self.scr_width = 1280 / 2  
         self.scr_height = 720 / 2
@@ -24,20 +29,15 @@ class Game:
         self.is_food = False
         self.state = {}
 
-        self.snake = Snake(self.scr)
+        self.snake = Snake(self.scr, self.player)
         self.AI = AI()
 
-    def get_state(self):
-        return self.state
-
     def main(self, weights):
-        # initialize game objects
-        self.scr = pygame.display.set_mode((self.scr_width, self.scr_height))
-        self.clock = pygame.time.Clock()
-        self.dt = 0.0
-        self.running = True
-        self.food = pygame.Rect(0, 0, 0, 0)
-        self.is_food = False
+        """
+        runs the game loop.
+        :param weights: weights for the AI
+        :return: fitness of the snake
+        """
 
         # game loop
         while self.running:
@@ -54,6 +54,7 @@ class Game:
                 self.food = pygame.Rect(food_pos[0], food_pos[1], 10, 10)
                 self.is_food = True
 
+            # obtain state dictionary
             self.state = {"snake_head": self.snake.snake_head, "segments": self.snake.segments, "food": self.food}
             
             if self.player == Player.AI or self.player == Player.TRAIN:
@@ -94,21 +95,23 @@ if __name__ == "__main__":
     def play_human():
         game = Game("HUMAN")
         game.main(np.array([0.0, 0.0]))
+
+    def play_train():
+        fitness = 0.0
+        parameters = np.array([0.0, 0.0])
+
+        while fitness < 200:
+            parameters = np.array([random.randint(0.0, 100.0),
+                                   random.randint(0.0, 10.0)])
     
+            game = Game("TRAIN")
+            fitnesses = []
+            for _ in range(3): # avoiding lucky/unlucky fitnesses
+                fitnesses.append(game.main(parameters))
+            fitness = np.mean(fitnesses)
+
+        print(f"for parameters {parameters} fitness is -> {fitness}")
+
     play_ai()
     # play_human()
-
-# TODO
-    # def run_main(parameters):
-    #     fitnesses = []
-    #     for _ in range(2):
-    #         fitnesses.append(main(parameters))
-
-    #     return np.mean(fitnesses)
-
-    # def learn(self):
-    #     self.Player = self.Player.train
-
-    #     parameters = np.ones(7, dtype=np.float64)
-    #     fitness = 0.0
-    #     return parameters
+    # play_train() 

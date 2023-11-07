@@ -1,24 +1,28 @@
-from game import initialize, Direction
+from game import initialize, Direction, Player
 from controls import Controls
 pygame = initialize()
 
 
 class Snake:
-    def __init__(self, scr):
+    def __init__(self, scr, player):
         """
         Initialize snake
         :param scr: screen
         """
 
-        self.scr = scr
+        self.scr_width = scr.get_width()
+        self.scr_height = scr.get_height()
+        self.player = player
+
         self.snake_speed_x = 0.0
         self.snake_speed_y = 0.0
         self.snake_size = 1
         self.segments = []  # queue FIFO
         self.speed = 10
-        self.snake_pos = pygame.Vector2(scr.get_width() / 2, scr.get_height() / 2)
+        self.snake_pos = pygame.Vector2(self.scr_width / 2, self.scr_height / 2)
         self.snake_head = pygame.Rect(self.snake_pos[0], self.snake_pos[1], 10, 10)
 
+        # controls for human player
         self.controls = Controls()
 
     def get_speed(self):
@@ -81,7 +85,9 @@ class Snake:
             self.segments.pop(0)
 
         # update direction
-        self.controls.listener()
+        if self.player == Player.HUMAN:
+            self.controls.listener()
+
         if self.controls.direction == Direction.RIGHT:
             self.snake_speed_x = 1 * self.speed
             self.snake_speed_y = 0
@@ -99,14 +105,13 @@ class Snake:
 
         # teleport from one side to another
         if self.snake_pos[0] < 0:
-            self.snake_pos[0] = self.scr.get_width()
-        if self.snake_pos[0] > self.scr.get_width():
+            self.snake_pos[0] = self.scr_width
+        if self.snake_pos[0] > self.scr_width:
             self.snake_pos[0] = 0
         if self.snake_pos[1] < 0:
-            self.snake_pos[1] = self.scr.get_height()
-        if self.snake_pos[1] > self.scr.get_height():
+            self.snake_pos[1] = self.scr_height
+        if self.snake_pos[1] > self.scr_height:
             self.snake_pos[1] = 0
-
 
         # update snake head
         self.snake_head = pygame.Rect(self.snake_pos[0], self.snake_pos[1], 10, 10)
