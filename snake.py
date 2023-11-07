@@ -33,6 +33,14 @@ class Snake:
 
         return self.snake_head.colliderect(rectangle)
 
+    def get_fitness(self):
+        """
+        Get fitness of snake
+        :return: fitness
+        """
+
+        return self.snake_size
+
     def game_over(self):
         """
         Check if snake collided with itself
@@ -67,6 +75,10 @@ class Snake:
         Update snake
         :return: None
         """
+        # update segments and size of snake
+        self.segments.append(pygame.Rect(self.snake_pos[0], self.snake_pos[1], 10, 10))
+        if len(self.segments) >= self.snake_size:
+            self.segments.pop(0)
 
         # update direction
         self.controls.listener()
@@ -95,10 +107,6 @@ class Snake:
         if self.snake_pos[1] > self.scr.get_height():
             self.snake_pos[1] = 0
 
-        # update segments and size of snake
-        self.segments.append(pygame.Rect(self.snake_pos[0], self.snake_pos[1], 10, 10))
-        if len(self.segments) >= self.snake_size:
-            self.segments.pop(0)
 
         # update snake head
         self.snake_head = pygame.Rect(self.snake_pos[0], self.snake_pos[1], 10, 10)

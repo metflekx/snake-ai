@@ -68,7 +68,7 @@ class Game:
                 self.snake.get_big()
 
             if self.snake.game_over():
-                print("GAME OVER")
+                return self.snake.get_fitness() 
 
             # Render
             for segment in self.snake.segments:
@@ -87,8 +87,9 @@ class Game:
 if __name__ == "__main__":
     def play_ai():
         game = Game("AI")
-        parameters = np.array([100.0, 10.0])
-        game.main(parameters)
+        parameters = np.array([50.0, 10.0])
+        fitness = game.main(parameters)
+        print(f"for parameters {parameters} fitness is -> {fitness}")
     
     def play_human():
         game = Game("HUMAN")
