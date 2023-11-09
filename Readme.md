@@ -1,7 +1,6 @@
-[![github.com/metflekx/snake-ai](https://img.youtube.com/vi/POaTPWV31vs/0.jpg)](https://www.youtube.com/watch?v=POaTPWV31vs)
-
-
 # Snake Game AI with Heuristic-Based Algorithm
+
+https://github.com/metflekx/snake-ai/assets/106245122/b0992975-6650-433a-90d3-c711f8736b0c
 
 Welcome to the Snake Game AI project! In this repository, 
 I have implemented a Snake Game AI using Python, Pygame, and Numpy.
